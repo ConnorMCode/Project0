@@ -65,6 +65,23 @@ void processLines(char *prompt, FILE *src) {
       printf("%s", prompt);
       continue;
     }
+
+    if (strncmp(input, "cd ", 3) == 0) {
+      char *arg = strtok(input + 2, " ");
+      char *extraArg = strtok(NULL, " ");
+
+      if (arg == NULL || extraArg != NULL) {
+	char error_message[30] = "An error has occurred\n"; 
+	write(STDERR_FILENO, error_message, strlen(error_message));
+      } else {
+	if (chdir(arg) != 0){
+	  char error_message[30] = "An error has occurred\n"; 
+	  write(STDERR_FILENO, error_message, strlen(error_message));
+	}
+      }
+      printf("%s", prompt);
+      continue;
+    }
     runCmd(input);
     printf("%s", prompt);
   }
