@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #define MAX_PATH 10
 
@@ -22,28 +23,72 @@ int runCmd(char *cmd) {
   pid_t pid;
   int status;
   char cmdPath[256];
+  char *args[256];
+  int argCount = 0;
+  char *saveptr = NULL;
+
+  
+  char *redirection = strstr(cmd, ">");
+  char *outputFile = NULL;
+
+  if (redirection != NULL) {
+    *redirection = '\0';
+    redirection++;
+    outputFile = strtok_r(redirection, " ", &saveptr);
+
+    if (outputFile == NULL || strtok_r(NULL, " ", &saveptr) != NULL){
+      char error_message[30] = "An error has occured\n";
+      write(STDERR_FILENO, error_message, strlen(error_message));
+      return -1;
+    }
+  }
+  
+  char *temp = strtok_r(cmd, " ", &saveptr);
+  while (temp != NULL) {
+    args[argCount++] = temp;
+    temp = strtok_r(NULL, " ", &saveptr);
+  }
+  args[argCount] = NULL;
   
   for (int i = 0; path[i] != NULL; i++){
     strcpy(cmdPath, path[i]);
     if (cmdPath[strlen(cmdPath) - 1] != '/') {
       strcat(cmdPath, "/");
     }
-    strcat(cmdPath, cmd);
+    strcat(cmdPath, args[0]);
 
     pid = fork();
 
     if (pid == 0){
-      execl(cmdPath, cmd, (char *)NULL);
-      perror("execl");
+
+      if (outputFile != NULL){
+	int out = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC);
+	if (out == -1){
+	  char error_message[30] = "An error has occurred\n";
+          write(STDERR_FILENO, error_message, strlen(error_message));
+          exit(EXIT_FAILURE);
+	}
+
+	dup2(out, STDOUT_FILENO);
+	dup2(out, STDERR_FILENO);
+	close(out);
+      }
+      
+      execv(cmdPath, args);
+      char error_message[30] = "An error has occurred\n"; 
+      write(STDERR_FILENO, error_message, strlen(error_message));
       exit(EXIT_FAILURE);
     } else if (pid < 0){
-      perror("fork");
+      char error_message[30] = "An error has occurred\n"; 
+      write(STDERR_FILENO, error_message, strlen(error_message));
       return -1;
     } else {
       wait(NULL);
       return 0;
     }
   }
+  char error_message[30] = "An error has occurred\n"; 
+  write(STDERR_FILENO, error_message, strlen(error_message));
   return -1;
 }
 
