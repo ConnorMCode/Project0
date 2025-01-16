@@ -47,12 +47,12 @@ int runCmd(char *cmd) {
   return -1;
 }
 
-int main() {
+void processLines(char *prompt, FILE *src) {
   char *input = NULL;
   size_t len = 0;
 
-  printf("wish> ");
-  while (getline(&input, &len, stdin) != -1) {
+  printf("%s", prompt);
+  while (getline(&input, &len, src) != -1) {
 
     input[strcspn(input, "\n")] = 0;
     
@@ -62,13 +62,27 @@ int main() {
     }
     if (strcmp(input, "path") == 0){
       printPath();
-      printf("wish> ");
+      printf("%s", prompt);
       continue;
     }
     runCmd(input);
-    printf("wish> ");
+    printf("%s", prompt);
   }
 
   free(input);
+}
+
+int main(int argc, char *argv[]) {
+  if (argc == 1) {
+    processLines("wish> ", stdin);
+  } else if (argc == 2) {
+    FILE *file = fopen(argv[1], "r");
+    if (file == NULL) {
+      exit(1);
+    }
+    processLines("", file);
+  } else {
+    exit(1);
+  }
   return 0;
 }  
