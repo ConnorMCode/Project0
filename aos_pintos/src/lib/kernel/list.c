@@ -1,5 +1,6 @@
 #include "list.h"
 #include "../debug.h"
+#include "../threads/thread.h"
 
 /* Our doubly linked lists have two header elements: the "head"
    just before the first element and the "tail" just after the
@@ -313,9 +314,31 @@ void list_reverse (struct list *list)
 
 int get_sorted_index (struct list *threads, struct thread *target) {
   /* Your implementation here */
-  (void) threads;
-  (void) target;
-  return 0;
+  if (threads == NULL || list_empty(threads) || target == NULL) {
+    return -1;
+  }
+
+  list_sort(threads, (list_less_func*) less_func_tid, NULL);
+
+  int ind = 0;
+  struct list_elem *e;
+  for (e = list_begin (threads); e != list_end (threads); e = list_next (e)) {
+    struct thread *e_thread = list_entry(e, struct thread, allelem);
+    if (e_thread == target) {
+      return ind;
+    }
+    ind++;
+  }
+  return -1;
+}
+/* Helper function for get_sorted_index for sorting by thread identifier
+*/
+bool less_func_tid(const struct list_elem *a,
+                   const struct list_elem *b, void *aux UNUSED)
+{
+    struct thread *thread_a = list_entry(a, struct thread, allelem);
+    struct thread *thread_b = list_entry(b, struct thread, allelem);
+    return thread_a->tid < thread_b->tid;
 }
 
 /* Returns true only if the list elements A through B (exclusive)

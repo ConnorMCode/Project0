@@ -162,6 +162,8 @@ bool list_empty (struct list *);
 /* Miscellaneous. */
 void list_reverse (struct list *);
 int get_sorted_index (struct list *threads, struct thread *target);
+bool less_func_tid(const struct list_elem *a,
+                   const struct list_elem *b, void *aux);
 
 /* Compares the value of two list elements A and B, given
    auxiliary data AUX.  Returns true if A is less than B, or
