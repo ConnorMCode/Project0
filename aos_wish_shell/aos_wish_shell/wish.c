@@ -19,12 +19,22 @@ void updatePath(char *input) {
     }
   }
 
+  if (input == NULL || *input == '\0'){
+    return;
+  }
+
   char *saveptr = NULL;
   char *dir = strtok_r(input, " ", &saveptr);
   int index = 0;
 
   while (dir != NULL && index < MAX_PATH){
-    path[index++] = strdup(dir);
+    if (dir[0] != '/'){
+      char fullPath[256] = "./";
+      strcat(fullPath, dir);
+      path[index++] = strdup(fullPath);
+    }else {
+      path[index++] = strdup(dir);
+    }
     dir = strtok_r(NULL, " ", &saveptr);
   }
 }
@@ -39,6 +49,11 @@ int runCmd(char *cmd) {
   int argCount = 0;
   char *saveptr = NULL;
 
+  if (cmd == NULL || strlen(cmd) == 0){
+    char error_message[30] = "An error has occurred\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
+    return -1;
+  }
   
   char *redirection = strstr(cmd, ">");
   char *outputFile = NULL;
@@ -49,7 +64,7 @@ int runCmd(char *cmd) {
     outputFile = strtok_r(redirection, " ", &saveptr);
 
     if (outputFile == NULL || strtok_r(NULL, " ", &saveptr) != NULL){
-      char error_message[30] = "An error has occured\n";
+      char error_message[30] = "An error has occurred\n";
       write(STDERR_FILENO, error_message, strlen(error_message));
       return -1;
     }
@@ -62,6 +77,12 @@ int runCmd(char *cmd) {
   }
   args[argCount] = NULL;
   
+  if (args[0] == NULL){
+    char error_message[30] = "An error has occurred\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
+    return -1;
+  }
+
   for (int i = 0; path[i] != NULL; i++){
     strcpy(cmdPath, path[i]);
     if (cmdPath[strlen(cmdPath) - 1] != '/') {
@@ -114,11 +135,16 @@ void processLines(char *prompt, FILE *src) {
     input[strcspn(input, "\n")] = 0;
     
     if (strcmp(input, "exit") == 0){
-      printf("Exiting wish..\n");
       break;
     }
-    if (strncmp(input, "path ", 5) == 0){
-      updatePath(input + 5);
+    if (strncmp(input, "path", 4) == 0){
+      char *arg = input + 4;
+      while (*arg == ' ') arg++;
+      if (*arg == '\0'){
+	updatePath(NULL);
+      } else {
+	updatePath(arg);
+      }
       printf("%s", prompt);
       continue;
     }
