@@ -7,13 +7,25 @@
 #include <fcntl.h>
 
 #define MAX_PATH 10
+#define MAX_PATH_LENGTH 256
 
-char *path[MAX_PATH] = {"/bin"};
+char *path[MAX_PATH] = {NULL};
 
-void printPath() {
-  printf("Current path:\n");
-  for (int i = 0; path[i] != NULL; i++){
-    printf("%s\n", path[i]);
+void updatePath(char *input) {
+  for (int i = 0; i < MAX_PATH; i++) {
+    if (path[i] != NULL){
+      free(path[i]);
+      path[i] = NULL;
+    }
+  }
+
+  char *saveptr = NULL;
+  char *dir = strtok_r(input, " ", &saveptr);
+  int index = 0;
+
+  while (dir != NULL && index < MAX_PATH){
+    path[index++] = strdup(dir);
+    dir = strtok_r(NULL, " ", &saveptr);
   }
 }
 
@@ -57,34 +69,34 @@ int runCmd(char *cmd) {
     }
     strcat(cmdPath, args[0]);
 
-    pid = fork();
+    if (access(cmdPath, X_OK) == 0){
+      pid = fork();
 
-    if (pid == 0){
+      if (pid == 0){
+	if (outputFile != NULL){
+	  int out = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	  if (out == -1){
+	    char error_message[30] = "An error has occurred\n";
+	    write(STDERR_FILENO, error_message, strlen(error_message));
+	    exit(EXIT_FAILURE);
+	  }
 
-      if (outputFile != NULL){
-	int out = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC);
-	if (out == -1){
-	  char error_message[30] = "An error has occurred\n";
-          write(STDERR_FILENO, error_message, strlen(error_message));
-          exit(EXIT_FAILURE);
+	  dup2(out, STDOUT_FILENO);
+	  dup2(out, STDERR_FILENO);
+	  close(out);
 	}
-
-	dup2(out, STDOUT_FILENO);
-	dup2(out, STDERR_FILENO);
-	close(out);
-      }
       
-      execv(cmdPath, args);
-      char error_message[30] = "An error has occurred\n"; 
-      write(STDERR_FILENO, error_message, strlen(error_message));
-      exit(EXIT_FAILURE);
-    } else if (pid < 0){
-      char error_message[30] = "An error has occurred\n"; 
-      write(STDERR_FILENO, error_message, strlen(error_message));
-      return -1;
-    } else {
-      wait(NULL);
-      return 0;
+	execv(cmdPath, args);
+	char error_message[30] = "An error has occurred\n"; 
+	write(STDERR_FILENO, error_message, strlen(error_message));
+	exit(EXIT_FAILURE);
+      } else if (pid < 0){
+	char error_message[30] = "An error has occurred\n"; 
+	write(STDERR_FILENO, error_message, strlen(error_message));
+	return -1;
+      } else {
+	return pid;
+      }
     }
   }
   char error_message[30] = "An error has occurred\n"; 
@@ -105,8 +117,8 @@ void processLines(char *prompt, FILE *src) {
       printf("Exiting wish..\n");
       break;
     }
-    if (strcmp(input, "path") == 0){
-      printPath();
+    if (strncmp(input, "path ", 5) == 0){
+      updatePath(input + 5);
       printf("%s", prompt);
       continue;
     }
@@ -127,14 +139,44 @@ void processLines(char *prompt, FILE *src) {
       printf("%s", prompt);
       continue;
     }
-    runCmd(input);
-    printf("%s", prompt);
+
+    char *cmds[256];
+    int cmdCount = 0;
+    char *saveptr = NULL;
+
+    char *cmd = strtok_r(input, "&", &saveptr);
+    while (cmd != NULL) {
+      cmds[cmdCount++] = cmd;
+      cmd = strtok_r(NULL, "&", &saveptr);
+    }
+
+    pid_t pids[cmdCount];
+    int pidCount = 0;
+
+    for(int i = 0; i < cmdCount; i++){
+      char *singleCmd = cmds[i];
+      while (*singleCmd == ' ') singleCmd++;
+      if (*singleCmd != '\0') {
+	pid_t pid = runCmd(singleCmd);
+	if (pid > 0){
+	  pids[pidCount++] = pid;
+      }
+    }
   }
 
+    for (int i = 0; i < pidCount; i++){
+      waitpid(pids[i], NULL, 0);
+    }
+
+    printf("%s", prompt);
+  }
   free(input);
 }
 
 int main(int argc, char *argv[]) {
+
+  updatePath("/bin");
+  
   if (argc == 1) {
     processLines("wish> ", stdin);
   } else if (argc == 2) {
