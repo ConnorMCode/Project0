@@ -208,10 +208,23 @@ int main(int argc, char *argv[]) {
   } else if (argc == 2) {
     FILE *file = fopen(argv[1], "r");
     if (file == NULL) {
+      char error_message[30] = "An error has occurred\n";
+      write(STDERR_FILENO, error_message, strlen(error_message));
       exit(1);
     }
+    fseek(file, 0, SEEK_END);
+    if (ftell(file) == 0){
+      char error_message[30] = "An error has occurred\n";
+      write(STDERR_FILENO, error_message, strlen(error_message));
+      fclose(file);
+      exit(1);
+    }
+    rewind(file);
     processLines("", file);
+    fclose(file);
   } else {
+    char error_message[30] = "An error has occurred\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
     exit(1);
   }
   return 0;
